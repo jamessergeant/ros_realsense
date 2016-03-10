@@ -1,25 +1,14 @@
 #include <ros/ros.h>
 #include <cv_bridge/cv_bridge.h>
-#include <ros/console.h>
 #include <image_transport/image_transport.h>
-#include <camera_info_manager/camera_info_manager.h>
 #include <librealsense/rs.hpp>
-#include <pcl/ros/conversions.h>
 #include <pcl/point_cloud.h>
 #include <pcl/point_types.h>
 #include <pcl_conversions/pcl_conversions.h>
-#include <vector>
 #include <sensor_msgs/image_encodings.h>
 #include <sensor_msgs/Image.h>
 #include <opencv2/core/core.hpp>
-#include <opencv2/imgproc/imgproc.hpp>
 #include <sensor_msgs/PointCloud2.h>
-#include <image_transport/image_transport.h>
-#include <opencv2/video/tracking.hpp>
-#include <opencv2/highgui/highgui.hpp>
-#include <opencv2/features2d/features2d.hpp>
-
-#include <string>
 
 typedef pcl::PointXYZRGB PointT;
 typedef pcl::PointCloud<PointT> PointCloud;
@@ -30,6 +19,7 @@ image_transport::Publisher color_reg_pub;
 image_transport::Publisher ir_pub;
 image_transport::Publisher depth_pub;
 
+// cv Mat to sensor_msgs::Image conversion
 sensor_msgs::ImagePtr cvImagetoMsg(cv::Mat &image,std::string encoding, std::string frame){
 
   static int header_sequence_id = 0;
@@ -50,31 +40,35 @@ int main(int argc, char * argv[]) try
 {
   rs::log_to_console(rs::log_severity::warn);
 
+  // get the device
   rs::context ctx;
   if(ctx.get_device_count() == 0) throw std::runtime_error("No device detected. Is it plugged in?");
   rs::device * dev = ctx.get_device(0);
 
+  // enable the various camera streams
   dev->enable_stream(rs::stream::depth, rs::preset::best_quality);
   dev->enable_stream(rs::stream::color, rs::preset::best_quality);
   dev->enable_stream(rs::stream::infrared, rs::preset::best_quality);
   dev->start();
 
+  // initialise the node
   ros::init(argc, argv, "ros_realsense_node");
   ros::NodeHandle n;
   image_transport::ImageTransport image_transport(n);
 
+  // start publishers
   color_pub = image_transport.advertise("/realsense/rgb/image_raw", 1 );
   color_reg_pub = image_transport.advertise("/realsense/rgb_registered/image_raw", 1 );
   depth_pub = image_transport.advertise("/realsense/depth/image_raw", 1 );
   ir_pub = image_transport.advertise("/realsense/ir/image_raw", 1 );
   realsense_points_pub = n.advertise<sensor_msgs::PointCloud2>("/realsense/points", 1 );
 
+  //obtain camera intrinsics and extrinsics
   rs::intrinsics depth_intrin = dev->get_stream_intrinsics(rs::stream::depth);
   rs::intrinsics color_intrin = dev->get_stream_intrinsics(rs::stream::color);
   rs::intrinsics ir_intrin = dev->get_stream_intrinsics(rs::stream::infrared);
   rs::intrinsics color_aligned_intrin = dev->get_stream_intrinsics(rs::stream::color_aligned_to_depth);
   rs::extrinsics depth_to_color = dev->get_extrinsics(rs::stream::depth, rs::stream::color);
-
   float scale = dev->get_depth_scale();
 
   while(ros::ok())
