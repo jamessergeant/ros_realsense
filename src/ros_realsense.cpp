@@ -44,7 +44,6 @@ int main(int argc, char * argv[]) try
   rs::context ctx;
   if(ctx.get_device_count() == 0) throw std::runtime_error("No device detected. Is it plugged in?");
   rs::device * dev = ctx.get_device(0);
-
   // enable the various camera streams
   dev->enable_stream(rs::stream::depth, rs::preset::best_quality);
   dev->enable_stream(rs::stream::color, rs::preset::best_quality);
@@ -69,6 +68,7 @@ int main(int argc, char * argv[]) try
   rs::intrinsics ir_intrin = dev->get_stream_intrinsics(rs::stream::infrared);
   rs::intrinsics color_aligned_intrin = dev->get_stream_intrinsics(rs::stream::color_aligned_to_depth);
   rs::extrinsics depth_to_color = dev->get_extrinsics(rs::stream::depth, rs::stream::color);
+  ROS_INFO_STREAM("Camera fx: " << depth_intrin.fx << " fy: " << depth_intrin.fy);
   float scale = dev->get_depth_scale();
 
   while(ros::ok())
@@ -77,17 +77,18 @@ int main(int argc, char * argv[]) try
     if(dev->is_streaming()) dev->wait_for_frames();
     uint8_t * color_raw;
     const uint16_t *depth_raw;
-    // obtain raw depth, depth-aligned color and ir data
+
+    // get color stream if pointcloud or color image subscribed to
     if (points_pub.getNumSubscribers() > 0 || color_pub.getNumSubscribers() > 0) {
       color_raw = (uint8_t *)dev->get_frame_data(rs::stream::color);
     }
 
-    if (points_pub.getNumSubscribers() > 0) {
-
-
+    // get depth stream if pointcloud or depth image subscribed to
+    if (points_pub.getNumSubscribers() > 0 || depth_pub.getNumSubscribers() > 0) {
       depth_raw = reinterpret_cast<const uint16_t *>(dev->get_frame_data(rs::stream::depth));
     }
 
+    // only if the pointcloud is subscibed to
     if (points_pub.getNumSubscribers() > 0)
     {
       // instantiate pcl xyzrgb pointcloud
@@ -148,29 +149,38 @@ int main(int argc, char * argv[]) try
       }
     }
 
+    // only if the depth image topic is subscribed to
     if (depth_pub.getNumSubscribers() > 0)
     {
+      // const void* to void*
       uint16_t *depth_raw2;
       memcpy(&depth_raw2, &depth_raw, sizeof(depth_raw));
+      // convert to cv image and publish
       cv::Mat depth_image(depth_intrin.height,depth_intrin.width,CV_16UC1,depth_raw2, cv::Mat::AUTO_STEP);
       depth_pub.publish(cvImagetoMsg(depth_image,sensor_msgs::image_encodings::TYPE_16UC1,"camera_depth_optical_frame"));
     }
 
+    // only if color image subscribed to
     if (color_pub.getNumSubscribers() > 0)
     {
+      // convert to cv image and publish
       cv::Mat color_image(color_intrin.height,color_intrin.width,CV_8UC3,color_raw, cv::Mat::AUTO_STEP);
       color_pub.publish(cvImagetoMsg(color_image,sensor_msgs::image_encodings::RGB8,"camera_rgb_optical_frame"));
     }
 
+    // only if depth-aligned color image subscribed to
     if (color_reg_pub.getNumSubscribers() > 0)
     {
+      // obtain data, convert to cv image and publish
       auto color_aligned_raw = (uint8_t *)dev->get_frame_data(rs::stream::color_aligned_to_depth);
       cv::Mat color_aligned_image(color_aligned_intrin.height,color_aligned_intrin.width,CV_8UC3,color_aligned_raw, cv::Mat::AUTO_STEP);
       color_reg_pub.publish(cvImagetoMsg(color_aligned_image,sensor_msgs::image_encodings::RGB8,"camera_depth_optical_frame"));
     }
 
+    //only if ir subscribed to
     if (ir_pub.getNumSubscribers() > 0)
     {
+      // obtain data, convert to cv image and publish
       uint16_t * ir_raw = (uint16_t *)dev->get_frame_data(rs::stream::infrared);
       cv::Mat ir_image(ir_intrin.height,ir_intrin.width,CV_16UC1,ir_raw, cv::Mat::AUTO_STEP);
       ir_pub.publish(cvImagetoMsg(ir_image,sensor_msgs::image_encodings::MONO16,"camera_depth_optical_frame"));
