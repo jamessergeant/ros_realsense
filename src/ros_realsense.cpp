@@ -58,7 +58,7 @@ int main(int argc, char * argv[]) try
 
   // start publishers
   color_pub = image_transport.advertise("/realsense/rgb/image_raw", 1 );
-  color_reg_pub = image_transport.advertise("/realsense/rgb_registered/image_raw", 1 );
+  color_reg_pub = image_transport.advertise("/realsense/rgb_depth_aligned/image_raw", 1 );
   depth_pub = image_transport.advertise("/realsense/depth/image_raw", 1 );
   ir_pub = image_transport.advertise("/realsense/ir/image_raw", 1 );
   points_pub = n.advertise<sensor_msgs::PointCloud2>("/realsense/points", 1 );
@@ -142,7 +142,7 @@ int main(int argc, char * argv[]) try
         sensor_msgs::PointCloud2 realsense_xyz_cloud2;
         pcl_conversions::moveFromPCL(pcl_xyz_pc2, realsense_xyz_cloud2);
         realsense_xyz_cloud2.header.stamp = ros::Time::now();
-        realsense_xyz_cloud2.header.frame_id = "world";
+        realsense_xyz_cloud2.header.frame_id = "camera_depth_optical_frame";
         points_pub.publish(realsense_xyz_cloud2);
 
       }
@@ -166,16 +166,15 @@ int main(int argc, char * argv[]) try
     {
       auto color_aligned_raw = (uint8_t *)dev->get_frame_data(rs::stream::color_aligned_to_depth);
       cv::Mat color_aligned_image(color_aligned_intrin.height,color_aligned_intrin.width,CV_8UC3,color_aligned_raw, cv::Mat::AUTO_STEP);
-      color_reg_pub.publish(cvImagetoMsg(color_aligned_image,sensor_msgs::image_encodings::RGB8,"camera_rgb_reg_optical_frame"));
+      color_reg_pub.publish(cvImagetoMsg(color_aligned_image,sensor_msgs::image_encodings::RGB8,"camera_depth_optical_frame"));
     }
 
     if (ir_pub.getNumSubscribers() > 0)
     {
       uint16_t * ir_raw = (uint16_t *)dev->get_frame_data(rs::stream::infrared);
       cv::Mat ir_image(ir_intrin.height,ir_intrin.width,CV_16UC1,ir_raw, cv::Mat::AUTO_STEP);
-      ir_pub.publish(cvImagetoMsg(ir_image,sensor_msgs::image_encodings::MONO16,"camera_ir_optical_frame"));
+      ir_pub.publish(cvImagetoMsg(ir_image,sensor_msgs::image_encodings::MONO16,"camera_depth_optical_frame"));
     }
-    // convert raw stream data to OpenCV images for colorm, ir and depth
 
   }
 
