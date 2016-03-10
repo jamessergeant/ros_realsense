@@ -1,6 +1,6 @@
 <?xml version="1.0" ?>
 <launch>
-    <arg name="realsense" default="realsense" />
+    <arg name="camera" default="camera" />
     <arg name="tf_prefix" default="" />
 
     <arg name="pi/2" value="1.5707963267948966" />
