@@ -13,7 +13,7 @@
 typedef pcl::PointXYZRGB PointT;
 typedef pcl::PointCloud<PointT> PointCloud;
 
-ros::Publisher realsense_points_pub;
+ros::Publisher points_pub;
 image_transport::Publisher color_pub;
 image_transport::Publisher color_reg_pub;
 image_transport::Publisher ir_pub;
@@ -61,7 +61,7 @@ int main(int argc, char * argv[]) try
   color_reg_pub = image_transport.advertise("/realsense/rgb_registered/image_raw", 1 );
   depth_pub = image_transport.advertise("/realsense/depth/image_raw", 1 );
   ir_pub = image_transport.advertise("/realsense/ir/image_raw", 1 );
-  realsense_points_pub = n.advertise<sensor_msgs::PointCloud2>("/realsense/points", 1 );
+  points_pub = n.advertise<sensor_msgs::PointCloud2>("/realsense/points", 1 );
 
   //obtain camera intrinsics and extrinsics
   rs::intrinsics depth_intrin = dev->get_stream_intrinsics(rs::stream::depth);
@@ -73,85 +73,109 @@ int main(int argc, char * argv[]) try
 
   while(ros::ok())
   {
-    // instantiate pcl xyzrgb pointcloud
-    PointCloud::Ptr cloud(new PointCloud);
-    cloud->header.frame_id = "world";
-    cloud->height = 1;
-    cloud->width = 1;
-
     // wait for frames from device
     if(dev->is_streaming()) dev->wait_for_frames();
-
+    uint8_t * color_raw;
+    const uint16_t *depth_raw;
     // obtain raw depth, depth-aligned color and ir data
-    auto *depth_raw = reinterpret_cast<const uint16_t *>(dev->get_frame_data(rs::stream::depth));
-    uint16_t *depth_raw2;
-    memcpy(&depth_raw2, &depth_raw, sizeof(depth_raw));
-    uint8_t * color_raw = (uint8_t *)dev->get_frame_data(rs::stream::color);
-    uint8_t * color_aligned_raw = (uint8_t *)dev->get_frame_data(rs::stream::color_aligned_to_depth);
-    uint16_t * ir_raw = (uint16_t *)dev->get_frame_data(rs::stream::infrared);
+    if (points_pub.getNumSubscribers() > 0 || color_pub.getNumSubscribers() > 0) {
+      color_raw = (uint8_t *)dev->get_frame_data(rs::stream::color);
+    }
 
-    // convert raw stream data to OpenCV images for colorm, ir and depth
-    cv::Mat color_image(color_intrin.height,color_intrin.width,CV_8UC3,color_raw, cv::Mat::AUTO_STEP);
-    cv::Mat color_aligned_image(color_aligned_intrin.height,color_aligned_intrin.width,CV_8UC3,color_aligned_raw, cv::Mat::AUTO_STEP);
-    cv::Mat ir_image(ir_intrin.height,ir_intrin.width,CV_16UC1,ir_raw, cv::Mat::AUTO_STEP);
-    cv::Mat depth_image(depth_intrin.height,depth_intrin.width,CV_16UC1,depth_raw2, cv::Mat::AUTO_STEP);
+    if (points_pub.getNumSubscribers() > 0) {
 
-    for (int dy=0; dy<depth_intrin.height; ++dy){
 
-      for (int dx=0; dx<depth_intrin.width; ++dx){
+      depth_raw = reinterpret_cast<const uint16_t *>(dev->get_frame_data(rs::stream::depth));
+    }
 
-        //obtain the depth value and apply scale factor
-        uint16_t depth_value = depth_raw[dy * depth_intrin.width + dx];
-        float depth_in_meters = depth_value * scale;
+    if (points_pub.getNumSubscribers() > 0)
+    {
+      // instantiate pcl xyzrgb pointcloud
+      PointCloud::Ptr cloud(new PointCloud);
+      cloud->header.frame_id = "world";
+      cloud->height = 1;
+      cloud->width = 1;
 
-        // Skip over pixels with a depth value of zero, which is used to indicate no data
-        if(depth_value == 0) continue;
+      for (int dy=0; dy<depth_intrin.height; ++dy){
 
-        // Map from pixel coordinates in the depth image to pixel coordinates in the color image
-        rs::float2 depth_pixel = {(float)dx, (float)dy};
-        rs::float3 depth_point = depth_intrin.deproject(depth_pixel, depth_in_meters);
-        rs::float3 color_point = depth_to_color.transform(depth_point);
-        rs::float2 color_pixel = color_intrin.project(color_point);
+        for (int dx=0; dx<depth_intrin.width; ++dx){
 
-        // Use the color from the nearest color pixel, ignore this point falls outside the color image
-        const int cx = (int)std::round(color_pixel.x), cy = (int)std::round(color_pixel.y);
-        if (!(cx < 0 || cy < 0 || cx >= color_intrin.width || cy >= color_intrin.height))
-        {
+          //obtain the depth value and apply scale factor
+          uint16_t depth_value = depth_raw[dy * depth_intrin.width + dx];
+          float depth_in_meters = depth_value * scale;
 
-          //obtain pointer to current colour pixel
-          const uint8_t * color_ptr = color_raw + (cy * color_intrin.width + cx) * 3;
+          // Skip over pixels with a depth value of zero, which is used to indicate no data
+          if(depth_value == 0) continue;
 
-          // create xyzrgb point
-          pcl::PointXYZRGB point(*(color_ptr), *(color_ptr+1), *(color_ptr+2));
-          point.x = depth_point.x;
-          point.y = depth_point.y;
-          point.z = depth_point.z;
+          // Map from pixel coordinates in the depth image to pixel coordinates in the color image
+          rs::float2 depth_pixel = {(float)dx, (float)dy};
+          rs::float3 depth_point = depth_intrin.deproject(depth_pixel, depth_in_meters);
+          rs::float3 color_point = depth_to_color.transform(depth_point);
+          rs::float2 color_pixel = color_intrin.project(color_point);
 
-          //add point to cloud
-          cloud->push_back(point);
+          // Use the color from the nearest color pixel, ignore this point falls outside the color image
+          const int cx = (int)std::round(color_pixel.x), cy = (int)std::round(color_pixel.y);
+          if (!(cx < 0 || cy < 0 || cx >= color_intrin.width || cy >= color_intrin.height))
+          {
+
+            //obtain pointer to current colour pixel
+            const uint8_t * color_ptr = color_raw + (cy * color_intrin.width + cx) * 3;
+
+            // create xyzrgb point
+            pcl::PointXYZRGB point(*(color_ptr), *(color_ptr+1), *(color_ptr+2));
+            point.x = depth_point.x;
+            point.y = depth_point.y;
+            point.z = depth_point.z;
+
+            //add point to cloud
+            cloud->push_back(point);
+          }
         }
+      }
+
+      // test if cloud empty
+      if ((*cloud).points.size() != 0) {
+
+        //convert pcl pointcloud to sensor_msgs pointcloud2, publish
+        pcl::PCLPointCloud2 pcl_xyz_pc2;
+        pcl::toPCLPointCloud2 (*cloud, pcl_xyz_pc2);
+        sensor_msgs::PointCloud2 realsense_xyz_cloud2;
+        pcl_conversions::moveFromPCL(pcl_xyz_pc2, realsense_xyz_cloud2);
+        realsense_xyz_cloud2.header.stamp = ros::Time::now();
+        realsense_xyz_cloud2.header.frame_id = "world";
+        points_pub.publish(realsense_xyz_cloud2);
+
       }
     }
 
-    //publish depth, depth-aligned color and ir images
-    color_pub.publish(cvImagetoMsg(color_image,sensor_msgs::image_encodings::RGB8,"camera_rgb_optical_frame"));
-    color_reg_pub.publish(cvImagetoMsg(color_aligned_image,sensor_msgs::image_encodings::RGB8,"camera_rgb_reg_optical_frame"));
-    ir_pub.publish(cvImagetoMsg(ir_image,sensor_msgs::image_encodings::MONO16,"camera_ir_optical_frame"));
-    depth_pub.publish(cvImagetoMsg(depth_image,sensor_msgs::image_encodings::TYPE_16UC1,"camera_depth_optical_frame"));
-
-    // test if cloud empty
-    if ((*cloud).points.size() != 0) {
-
-      //convert pcl pointcloud to sensor_msgs pointcloud2, publish
-      pcl::PCLPointCloud2 pcl_xyz_pc2;
-      pcl::toPCLPointCloud2 (*cloud, pcl_xyz_pc2);
-      sensor_msgs::PointCloud2 realsense_xyz_cloud2;
-      pcl_conversions::moveFromPCL(pcl_xyz_pc2, realsense_xyz_cloud2);
-      realsense_xyz_cloud2.header.stamp = ros::Time::now();
-      realsense_xyz_cloud2.header.frame_id = "world";
-      realsense_points_pub.publish(realsense_xyz_cloud2);
-
+    if (depth_pub.getNumSubscribers() > 0)
+    {
+      uint16_t *depth_raw2;
+      memcpy(&depth_raw2, &depth_raw, sizeof(depth_raw));
+      cv::Mat depth_image(depth_intrin.height,depth_intrin.width,CV_16UC1,depth_raw2, cv::Mat::AUTO_STEP);
+      depth_pub.publish(cvImagetoMsg(depth_image,sensor_msgs::image_encodings::TYPE_16UC1,"camera_depth_optical_frame"));
     }
+
+    if (color_pub.getNumSubscribers() > 0)
+    {
+      cv::Mat color_image(color_intrin.height,color_intrin.width,CV_8UC3,color_raw, cv::Mat::AUTO_STEP);
+      color_pub.publish(cvImagetoMsg(color_image,sensor_msgs::image_encodings::RGB8,"camera_rgb_optical_frame"));
+    }
+
+    if (color_reg_pub.getNumSubscribers() > 0)
+    {
+      auto color_aligned_raw = (uint8_t *)dev->get_frame_data(rs::stream::color_aligned_to_depth);
+      cv::Mat color_aligned_image(color_aligned_intrin.height,color_aligned_intrin.width,CV_8UC3,color_aligned_raw, cv::Mat::AUTO_STEP);
+      color_reg_pub.publish(cvImagetoMsg(color_aligned_image,sensor_msgs::image_encodings::RGB8,"camera_rgb_reg_optical_frame"));
+    }
+
+    if (ir_pub.getNumSubscribers() > 0)
+    {
+      uint16_t * ir_raw = (uint16_t *)dev->get_frame_data(rs::stream::infrared);
+      cv::Mat ir_image(ir_intrin.height,ir_intrin.width,CV_16UC1,ir_raw, cv::Mat::AUTO_STEP);
+      ir_pub.publish(cvImagetoMsg(ir_image,sensor_msgs::image_encodings::MONO16,"camera_ir_optical_frame"));
+    }
+    // convert raw stream data to OpenCV images for colorm, ir and depth
 
   }
 
