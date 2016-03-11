@@ -1,0 +1,14 @@
+<?xml version="1.0" ?>
+<launch>
+
+  <!-- Launch ros_kinfu execution -->
+  <include file="$(find capsicum_detection)/launch/capsicum_segmentation.launch">
+  </include>
+
+  <!-- Launch ros_kinfu execution -->
+  <include file="$(find ros_kinfu)/launch/ros_kinfu.launch">
+  </include>
+
+
+</launch>
+

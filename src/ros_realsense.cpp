@@ -1,4 +1,5 @@
 #include <ros/ros.h>
+#include <ros/console.h>
 #include <cv_bridge/cv_bridge.h>
 #include <image_transport/image_transport.h>
 #include <librealsense/rs.hpp>
@@ -68,7 +69,6 @@ int main(int argc, char * argv[]) try
   rs::intrinsics ir_intrin = dev->get_stream_intrinsics(rs::stream::infrared);
   rs::intrinsics color_aligned_intrin = dev->get_stream_intrinsics(rs::stream::color_aligned_to_depth);
   rs::extrinsics depth_to_color = dev->get_extrinsics(rs::stream::depth, rs::stream::color);
-  ROS_INFO_STREAM("Camera fx: " << depth_intrin.fx << " fy: " << depth_intrin.fy);
   float scale = dev->get_depth_scale();
 
   while(ros::ok())
@@ -104,7 +104,6 @@ int main(int argc, char * argv[]) try
           //obtain the depth value and apply scale factor
           uint16_t depth_value = depth_raw[dy * depth_intrin.width + dx];
           float depth_in_meters = depth_value * scale;
-
           // Skip over pixels with a depth value of zero, which is used to indicate no data
           if(depth_value == 0) continue;
 
@@ -157,7 +156,8 @@ int main(int argc, char * argv[]) try
       memcpy(&depth_raw2, &depth_raw, sizeof(depth_raw));
       // convert to cv image and publish
       cv::Mat depth_image(depth_intrin.height,depth_intrin.width,CV_16UC1,depth_raw2, cv::Mat::AUTO_STEP);
-      depth_pub.publish(cvImagetoMsg(depth_image,sensor_msgs::image_encodings::TYPE_16UC1,"camera_depth_optical_frame"));
+      cv::Mat depth_image_out = depth_image * 1000.0f *scale;
+      depth_pub.publish(cvImagetoMsg(depth_image_out,sensor_msgs::image_encodings::MONO16,"camera_depth_optical_frame"));
     }
 
     // only if color image subscribed to

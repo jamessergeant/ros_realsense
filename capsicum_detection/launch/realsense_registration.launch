@@ -1,0 +1,10 @@
+<?xml version="1.0" ?>
+<launch>
+  
+
+  <node name="realsense_registration" pkg="capsicum_detection" type="realsense_registration" output="screen">
+  
+  </node>
+
+</launch>
+
