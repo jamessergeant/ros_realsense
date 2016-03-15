@@ -206,6 +206,7 @@ target_link_libraries(ros_realsense_node
   ${PCL_LIBRARIES}
   -ludev
   -lrealsense
+-lvtkCommonComputationalGeometry
 )
 
 #############
