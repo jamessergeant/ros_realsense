@@ -1,10 +1,10 @@
 <?xml version="1.0" encoding="UTF-8"?>
 <!DOCTYPE QtCreatorProject>
-<!-- Written by QtCreator 3.6.0, 2016-03-17T16:50:38. -->
+<!-- Written by QtCreator 3.6.0, 2016-03-11T11:36:08. -->
 <qtcreator>
  <data>
   <variable>EnvironmentId</variable>
-  <value type="QByteArray">{43f8a999-d5cd-4d33-963f-2efcada4b73b}</value>
+  <value type="QByteArray">{d0b18434-9657-497a-ad89-947aea4cf289}</value>
  </data>
  <data>
   <variable>ProjectExplorer.Project.ActiveTarget</variable>
@@ -60,14 +60,14 @@
   <valuemap type="QVariantMap">
    <value type="QString" key="ProjectExplorer.ProjectConfiguration.DefaultDisplayName">Desktop</value>
    <value type="QString" key="ProjectExplorer.ProjectConfiguration.DisplayName">Desktop</value>
-   <value type="QString" key="ProjectExplorer.ProjectConfiguration.Id">{a3ae2af4-23b9-43f0-8e0d-28340b21790d}</value>
+   <value type="QString" key="ProjectExplorer.ProjectConfiguration.Id">{c6108426-6020-44ac-b335-a5b0b945c88f}</value>
    <value type="int" key="ProjectExplorer.Target.ActiveBuildConfiguration">0</value>
    <value type="int" key="ProjectExplorer.Target.ActiveDeployConfiguration">0</value>
    <value type="int" key="ProjectExplorer.Target.ActiveRunConfiguration">0</value>
    <valuemap type="QVariantMap" key="ProjectExplorer.Target.BuildConfiguration.0">
     <value type="QString" key="CMakeProjectManager.CMakeBuildConfiguration.InitialArgument"></value>
     <value type="bool" key="CMakeProjectManager.CMakeBuildConfiguration.UseNinja">false</value>
-    <value type="QString" key="ProjectExplorer.BuildConfiguration.BuildDirectory">/home/james/ros_ws/src/JAMESapc/build-ros_realsense-Desktop-Default</value>
+    <value type="QString" key="ProjectExplorer.BuildConfiguration.BuildDirectory">/home/james/ros_ws/src/HARVEYapc/build-ros_realsense-Desktop-Default</value>
     <valuemap type="QVariantMap" key="ProjectExplorer.BuildConfiguration.BuildStepList.0">
      <valuemap type="QVariantMap" key="ProjectExplorer.BuildStepList.Step.0">
       <value type="QString" key="CMakeProjectManager.MakeStep.AdditionalArguments"></value>
@@ -110,7 +110,7 @@
    <valuemap type="QVariantMap" key="ProjectExplorer.Target.BuildConfiguration.1">
     <value type="QString" key="CMakeProjectManager.CMakeBuildConfiguration.InitialArgument">-DCMAKE_BUILD_TYPE=Debug</value>
     <value type="bool" key="CMakeProjectManager.CMakeBuildConfiguration.UseNinja">false</value>
-    <value type="QString" key="ProjectExplorer.BuildConfiguration.BuildDirectory">/home/james/ros_ws/src/JAMESapc/build-ros_realsense-Desktop-Debug</value>
+    <value type="QString" key="ProjectExplorer.BuildConfiguration.BuildDirectory">/home/james/ros_ws/src/HARVEYapc/build-ros_realsense-Desktop-Debug</value>
     <valuemap type="QVariantMap" key="ProjectExplorer.BuildConfiguration.BuildStepList.0">
      <valuemap type="QVariantMap" key="ProjectExplorer.BuildStepList.Step.0">
       <value type="QString" key="CMakeProjectManager.MakeStep.AdditionalArguments"></value>
@@ -153,7 +153,7 @@
    <valuemap type="QVariantMap" key="ProjectExplorer.Target.BuildConfiguration.2">
     <value type="QString" key="CMakeProjectManager.CMakeBuildConfiguration.InitialArgument">-DCMAKE_BUILD_TYPE=Release</value>
     <value type="bool" key="CMakeProjectManager.CMakeBuildConfiguration.UseNinja">false</value>
-    <value type="QString" key="ProjectExplorer.BuildConfiguration.BuildDirectory">/home/james/ros_ws/src/JAMESapc/build-ros_realsense-Desktop-Release</value>
+    <value type="QString" key="ProjectExplorer.BuildConfiguration.BuildDirectory">/home/james/ros_ws/src/HARVEYapc/build-ros_realsense-Desktop-Release</value>
     <valuemap type="QVariantMap" key="ProjectExplorer.BuildConfiguration.BuildStepList.0">
      <valuemap type="QVariantMap" key="ProjectExplorer.BuildStepList.Step.0">
       <value type="QString" key="CMakeProjectManager.MakeStep.AdditionalArguments"></value>
@@ -196,7 +196,7 @@
    <valuemap type="QVariantMap" key="ProjectExplorer.Target.BuildConfiguration.3">
     <value type="QString" key="CMakeProjectManager.CMakeBuildConfiguration.InitialArgument">-DCMAKE_BUILD_TYPE=RelWithDebInfo</value>
     <value type="bool" key="CMakeProjectManager.CMakeBuildConfiguration.UseNinja">false</value>
-    <value type="QString" key="ProjectExplorer.BuildConfiguration.BuildDirectory">/home/james/ros_ws/src/JAMESapc/build-ros_realsense-Desktop-Release with Debug Information</value>
+    <value type="QString" key="ProjectExplorer.BuildConfiguration.BuildDirectory">/home/james/ros_ws/src/HARVEYapc/build-ros_realsense-Desktop-Release with Debug Information</value>
     <valuemap type="QVariantMap" key="ProjectExplorer.BuildConfiguration.BuildStepList.0">
      <valuemap type="QVariantMap" key="ProjectExplorer.BuildStepList.Step.0">
       <value type="QString" key="CMakeProjectManager.MakeStep.AdditionalArguments"></value>
@@ -239,7 +239,7 @@
    <valuemap type="QVariantMap" key="ProjectExplorer.Target.BuildConfiguration.4">
     <value type="QString" key="CMakeProjectManager.CMakeBuildConfiguration.InitialArgument">-DCMAKE_BUILD_TYPE=MinSizeRel</value>
     <value type="bool" key="CMakeProjectManager.CMakeBuildConfiguration.UseNinja">false</value>
-    <value type="QString" key="ProjectExplorer.BuildConfiguration.BuildDirectory">/home/james/ros_ws/src/JAMESapc/build-ros_realsense-Desktop-Minimum Size Release</value>
+    <value type="QString" key="ProjectExplorer.BuildConfiguration.BuildDirectory">/home/james/ros_ws/src/HARVEYapc/build-ros_realsense-Desktop-Minimum Size Release</value>
     <valuemap type="QVariantMap" key="ProjectExplorer.BuildConfiguration.BuildStepList.0">
      <valuemap type="QVariantMap" key="ProjectExplorer.BuildStepList.Step.0">
       <value type="QString" key="CMakeProjectManager.MakeStep.AdditionalArguments"></value>

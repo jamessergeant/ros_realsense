@@ -10,15 +10,25 @@
 #include <sensor_msgs/Image.h>
 #include <opencv2/core/core.hpp>
 #include <sensor_msgs/PointCloud2.h>
+#include <sensor_msgs/CameraInfo.h>
+#include <camera_info_manager/camera_info_manager.h>
 
 typedef pcl::PointXYZRGB PointT;
 typedef pcl::PointCloud<PointT> PointCloud;
 
 ros::Publisher points_pub;
-image_transport::Publisher color_pub;
-image_transport::Publisher color_reg_pub;
-image_transport::Publisher ir_pub;
-image_transport::Publisher depth_pub;
+image_transport::CameraPublisher color_pub;
+image_transport::CameraPublisher color_reg_pub;
+image_transport::CameraPublisher ir_pub;
+image_transport::CameraPublisher depth_pub;
+sensor_msgs::CameraInfo color_camera_info;
+sensor_msgs::CameraInfo depth_camera_info;
+sensor_msgs::CameraInfo ir_camera_info;
+sensor_msgs::CameraInfo color_reg_camera_info;
+camera_info_manager::CameraInfoManager *color_camera_info_man;
+camera_info_manager::CameraInfoManager *color_reg_camera_info_man;
+camera_info_manager::CameraInfoManager *ir_camera_info_man;
+camera_info_manager::CameraInfoManager *depth_camera_info_man;
 
 // cv Mat to sensor_msgs::Image conversion
 sensor_msgs::ImagePtr cvImagetoMsg(cv::Mat &image,std::string encoding, std::string frame){
@@ -35,6 +45,17 @@ sensor_msgs::ImagePtr cvImagetoMsg(cv::Mat &image,std::string encoding, std::str
   cv_msg_ptr = new cv_bridge::CvImage(header,encoding,image);
 
   return cv_msg_ptr->toImageMsg();
+}
+
+void intrinsToCameraInfo(rs::intrinsics &intrins, sensor_msgs::CameraInfo &cam_info) {
+
+  cam_info.height = intrins.height;
+  cam_info.width = intrins.width;
+  cam_info.distortion_model = "Plumb Bob";
+  cam_info.D = {intrins.coeffs[0], intrins.coeffs[1], intrins.coeffs[2], intrins.coeffs[3], intrins.coeffs[4]};
+  cam_info.K = {intrins.fx, 0, intrins.ppx, 0, intrins.fy, intrins.ppy, 0, 0, 1};
+  cam_info.P = {intrins.fx, 0, intrins.ppx, 0, 0, intrins.fy, intrins.ppy, 0, 0, 0, 1, 0};
+  cam_info.R = {1, 0, 0, 0, 1, 0, 0, 0, 1};
 }
 
 int main(int argc, char * argv[]) try
@@ -57,12 +78,21 @@ int main(int argc, char * argv[]) try
   image_transport::ImageTransport image_transport(n);
 
   // start publishers
-  color_pub = image_transport.advertise("/realsense/rgb/image_raw", 1 );
-  color_reg_pub = image_transport.advertise("/realsense/rgb_depth_aligned/image_raw", 1 );
-  depth_pub = image_transport.advertise("/realsense/depth/image_raw", 1 );
-  ir_pub = image_transport.advertise("/realsense/ir/image_raw", 1 );
+  color_pub = image_transport.advertiseCamera("/realsense/rgb/image_raw", 1 );
+  // color_camera_info_pub = image_transport.advertise("/realsense/rgb/camera_info", 1 );
+  color_reg_pub = image_transport.advertiseCamera("/realsense/rgb_depth_aligned/image_raw", 1 );
+  depth_pub = image_transport.advertiseCamera("/realsense/depth/image_raw", 1 );
+  ir_pub = image_transport.advertiseCamera("/realsense/ir/image_raw", 1 );
   points_pub = n.advertise<sensor_msgs::PointCloud2>("/realsense/points", 1 );
-
+  ros::NodeHandle rgb_handle("~/rgb/");
+  ros::NodeHandle rgb_depth_handle("~/rgb_depth_aligned/");
+  ros::NodeHandle ir_handle("~/ir/");
+  ros::NodeHandle depth_handle("~/depth/");
+  color_camera_info_man = new camera_info_manager::CameraInfoManager(rgb_handle,"camera_rgb_optical_frame");
+  color_reg_camera_info_man = new camera_info_manager::CameraInfoManager(rgb_depth_handle,"camera_depth_optical_frame");
+  ir_camera_info_man = new camera_info_manager::CameraInfoManager(ir_handle,"camera_depth_optical_frame");
+  depth_camera_info_man = new camera_info_manager::CameraInfoManager(depth_handle,"camera_depth_optical_frame");
+  // color_camera_info_man->setCameraName("realsense");
   //obtain camera intrinsics and extrinsics
   rs::intrinsics depth_intrin = dev->get_stream_intrinsics(rs::stream::depth);
   rs::intrinsics color_intrin = dev->get_stream_intrinsics(rs::stream::color);
@@ -70,6 +100,16 @@ int main(int argc, char * argv[]) try
   rs::intrinsics color_aligned_intrin = dev->get_stream_intrinsics(rs::stream::color_aligned_to_depth);
   rs::extrinsics depth_to_color = dev->get_extrinsics(rs::stream::depth, rs::stream::color);
   float scale = dev->get_depth_scale();
+
+  intrinsToCameraInfo(color_intrin,color_camera_info);
+  intrinsToCameraInfo(depth_intrin,depth_camera_info);
+  intrinsToCameraInfo(ir_intrin,ir_camera_info);
+  intrinsToCameraInfo(color_aligned_intrin,color_reg_camera_info);
+
+  color_camera_info_man->setCameraInfo(color_camera_info);
+  color_reg_camera_info_man->setCameraInfo(color_reg_camera_info);
+  ir_camera_info_man->setCameraInfo(ir_camera_info);
+  depth_camera_info_man->setCameraInfo(depth_camera_info);
 
   while(ros::ok())
   {
@@ -157,7 +197,10 @@ int main(int argc, char * argv[]) try
       // convert to cv image and publish
       cv::Mat depth_image(depth_intrin.height,depth_intrin.width,CV_16UC1,depth_raw2, cv::Mat::AUTO_STEP);
       cv::Mat depth_image_out = depth_image * 1000.0f *scale;
-      depth_pub.publish(cvImagetoMsg(depth_image_out,sensor_msgs::image_encodings::MONO16,"camera_depth_optical_frame"));
+      sensor_msgs::ImagePtr depthImage = cvImagetoMsg(depth_image_out,sensor_msgs::image_encodings::MONO16,"camera_depth_optical_frame");
+      depth_camera_info = depth_camera_info_man->getCameraInfo();
+      depth_camera_info.header.frame_id ="camera_depth_optical_frame";
+      depth_pub.publish(*depthImage,depth_camera_info,depthImage->header.stamp);
     }
 
     // only if color image subscribed to
@@ -165,7 +208,10 @@ int main(int argc, char * argv[]) try
     {
       // convert to cv image and publish
       cv::Mat color_image(color_intrin.height,color_intrin.width,CV_8UC3,color_raw, cv::Mat::AUTO_STEP);
-      color_pub.publish(cvImagetoMsg(color_image,sensor_msgs::image_encodings::RGB8,"camera_rgb_optical_frame"));
+      sensor_msgs::ImagePtr colorImage = cvImagetoMsg(color_image,sensor_msgs::image_encodings::RGB8,"camera_rgb_optical_frame");
+      color_camera_info = color_camera_info_man->getCameraInfo();
+      color_camera_info.header.frame_id ="camera_rgb_optical_frame";
+      color_pub.publish(*colorImage,color_camera_info,colorImage->header.stamp);
     }
 
     // only if depth-aligned color image subscribed to
@@ -174,7 +220,10 @@ int main(int argc, char * argv[]) try
       // obtain data, convert to cv image and publish
       auto color_aligned_raw = (uint8_t *)dev->get_frame_data(rs::stream::color_aligned_to_depth);
       cv::Mat color_aligned_image(color_aligned_intrin.height,color_aligned_intrin.width,CV_8UC3,color_aligned_raw, cv::Mat::AUTO_STEP);
-      color_reg_pub.publish(cvImagetoMsg(color_aligned_image,sensor_msgs::image_encodings::RGB8,"camera_depth_optical_frame"));
+      sensor_msgs::ImagePtr colorImage = cvImagetoMsg(color_aligned_image,sensor_msgs::image_encodings::RGB8,"camera_depth_optical_frame");
+      color_reg_camera_info = color_reg_camera_info_man->getCameraInfo();
+      color_reg_camera_info.header.frame_id ="camera_depth_optical_frame";
+      color_reg_pub.publish(*colorImage,color_reg_camera_info,colorImage->header.stamp);
     }
 
     //only if ir subscribed to
@@ -183,7 +232,10 @@ int main(int argc, char * argv[]) try
       // obtain data, convert to cv image and publish
       uint16_t * ir_raw = (uint16_t *)dev->get_frame_data(rs::stream::infrared);
       cv::Mat ir_image(ir_intrin.height,ir_intrin.width,CV_16UC1,ir_raw, cv::Mat::AUTO_STEP);
-      ir_pub.publish(cvImagetoMsg(ir_image,sensor_msgs::image_encodings::MONO16,"camera_depth_optical_frame"));
+      sensor_msgs::ImagePtr irImage = cvImagetoMsg(ir_image,sensor_msgs::image_encodings::MONO16,"camera_depth_optical_frame");
+      ir_camera_info = ir_camera_info_man->getCameraInfo();
+      ir_camera_info.header.frame_id ="camera_depth_optical_frame";
+      ir_pub.publish(*irImage,ir_camera_info,irImage->header.stamp);
     }
 
   }
