@@ -79,20 +79,21 @@ int main(int argc, char * argv[]) try
 
   // start publishers
   color_pub = image_transport.advertiseCamera("/realsense/rgb/image_raw", 1 );
-  // color_camera_info_pub = image_transport.advertise("/realsense/rgb/camera_info", 1 );
   color_reg_pub = image_transport.advertiseCamera("/realsense/rgb_depth_aligned/image_raw", 1 );
   depth_pub = image_transport.advertiseCamera("/realsense/depth/image_raw", 1 );
   ir_pub = image_transport.advertiseCamera("/realsense/ir/image_raw", 1 );
   points_pub = n.advertise<sensor_msgs::PointCloud2>("/realsense/points", 1 );
+
   ros::NodeHandle rgb_handle("~/rgb/");
   ros::NodeHandle rgb_depth_handle("~/rgb_depth_aligned/");
   ros::NodeHandle ir_handle("~/ir/");
   ros::NodeHandle depth_handle("~/depth/");
+
   color_camera_info_man = new camera_info_manager::CameraInfoManager(rgb_handle,"camera_rgb_optical_frame");
   color_reg_camera_info_man = new camera_info_manager::CameraInfoManager(rgb_depth_handle,"camera_depth_optical_frame");
   ir_camera_info_man = new camera_info_manager::CameraInfoManager(ir_handle,"camera_depth_optical_frame");
   depth_camera_info_man = new camera_info_manager::CameraInfoManager(depth_handle,"camera_depth_optical_frame");
-  // color_camera_info_man->setCameraName("realsense");
+
   //obtain camera intrinsics and extrinsics
   rs::intrinsics depth_intrin = dev->get_stream_intrinsics(rs::stream::depth);
   rs::intrinsics color_intrin = dev->get_stream_intrinsics(rs::stream::color);
@@ -117,20 +118,18 @@ int main(int argc, char * argv[]) try
     if(dev->is_streaming()) dev->wait_for_frames();
     uint8_t * color_raw;
     const uint16_t *depth_raw;
+    uint16_t *depth_raw2;
 
     // get color stream if pointcloud or color image subscribed to
     if (points_pub.getNumSubscribers() > 0 || color_pub.getNumSubscribers() > 0) {
       color_raw = (uint8_t *)dev->get_frame_data(rs::stream::color);
     }
 
-    // get depth stream if pointcloud or depth image subscribed to
-    if (points_pub.getNumSubscribers() > 0 || depth_pub.getNumSubscribers() > 0) {
-      depth_raw = reinterpret_cast<const uint16_t *>(dev->get_frame_data(rs::stream::depth));
-    }
 
     // only if the pointcloud is subscibed to
     if (points_pub.getNumSubscribers() > 0)
     {
+      depth_raw = (const uint16_t *)dev->get_frame_data(rs::stream::depth);
       // instantiate pcl xyzrgb pointcloud
       PointCloud::Ptr cloud(new PointCloud);
       cloud->header.frame_id = "world";
@@ -191,13 +190,11 @@ int main(int argc, char * argv[]) try
     // only if the depth image topic is subscribed to
     if (depth_pub.getNumSubscribers() > 0)
     {
-      // const void* to void*
-      uint16_t *depth_raw2;
-      memcpy(&depth_raw2, &depth_raw, sizeof(depth_raw));
+      depth_raw2 = (uint16_t *)dev->get_frame_data(rs::stream::depth);
       // convert to cv image and publish
       cv::Mat depth_image(depth_intrin.height,depth_intrin.width,CV_16UC1,depth_raw2, cv::Mat::AUTO_STEP);
-      cv::Mat depth_image_out = depth_image * 1000.0f *scale;
-      sensor_msgs::ImagePtr depthImage = cvImagetoMsg(depth_image_out,sensor_msgs::image_encodings::MONO16,"camera_depth_optical_frame");
+      depth_image *= 1000.0f *scale;
+      sensor_msgs::ImagePtr depthImage = cvImagetoMsg(depth_image,sensor_msgs::image_encodings::MONO16,"camera_depth_optical_frame");
       depth_camera_info = depth_camera_info_man->getCameraInfo();
       depth_camera_info.header.frame_id ="camera_depth_optical_frame";
       depth_pub.publish(*depthImage,depth_camera_info,depthImage->header.stamp);
