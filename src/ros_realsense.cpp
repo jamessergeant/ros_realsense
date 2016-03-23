@@ -35,14 +35,14 @@ sensor_msgs::ImagePtr cvImagetoMsg(cv::Mat &image,std::string encoding, std::str
 
   static int header_sequence_id = 0;
 
-  cv_bridge::CvImage* cv_msg_ptr = new cv_bridge::CvImage();
+  //cv_bridge::CvImage::Ptr cv_msg_ptr = new cv_bridge::CvImage::Ptr();
   std_msgs::Header header;
 
   header.seq = header_sequence_id++;
   header.stamp = ros::Time::now();
   header.frame_id = frame;
 
-  cv_msg_ptr = new cv_bridge::CvImage(header,encoding,image);
+  cv_bridge::CvImage::Ptr cv_msg_ptr = cv_bridge::CvImage::Ptr(new cv_bridge::CvImage(header,encoding,image));
 
   return cv_msg_ptr->toImageMsg();
 }
@@ -118,7 +118,7 @@ int main(int argc, char * argv[]) try
     if(dev->is_streaming()) dev->wait_for_frames();
     uint8_t * color_raw;
     const uint16_t *depth_raw;
-    uint16_t *depth_raw2;
+
 
     // get color stream if pointcloud or color image subscribed to
     if (points_pub.getNumSubscribers() > 0 || color_pub.getNumSubscribers() > 0) {
@@ -190,10 +190,21 @@ int main(int argc, char * argv[]) try
     // only if the depth image topic is subscribed to
     if (depth_pub.getNumSubscribers() > 0)
     {
-      depth_raw2 = (uint16_t *)dev->get_frame_data(rs::stream::depth);
+       uint16_t *depth_raw2 = (uint16_t *)dev->get_frame_data(rs::stream::depth);
       // convert to cv image and publish
-      cv::Mat depth_image(depth_intrin.height,depth_intrin.width,CV_16UC1,depth_raw2, cv::Mat::AUTO_STEP);
-      depth_image *= 1000.0f *scale;
+      cv::Mat depth_image_raw(depth_intrin.height,depth_intrin.width,CV_16UC1,depth_raw2, cv::Mat::AUTO_STEP);
+
+      cv::Mat depth_image(depth_intrin.height,depth_intrin.width,CV_16UC1);
+
+      cv::Mat depth_image_scaled(depth_intrin.height,depth_intrin.width,CV_64FC1);
+
+      depth_image_raw.copyTo(depth_image);
+      depth_image_raw.convertTo(depth_image_scaled,CV_64FC1);
+
+      depth_image_scaled *= 1000.0f*scale;
+
+      depth_image_scaled.convertTo(depth_image,CV_16UC1);
+
       sensor_msgs::ImagePtr depthImage = cvImagetoMsg(depth_image,sensor_msgs::image_encodings::MONO16,"camera_depth_optical_frame");
       depth_camera_info = depth_camera_info_man->getCameraInfo();
       depth_camera_info.header.frame_id ="camera_depth_optical_frame";
@@ -215,7 +226,7 @@ int main(int argc, char * argv[]) try
     if (color_reg_pub.getNumSubscribers() > 0)
     {
       // obtain data, convert to cv image and publish
-      auto color_aligned_raw = (uint8_t *)dev->get_frame_data(rs::stream::color_aligned_to_depth);
+      uint8_t* color_aligned_raw = (uint8_t *)dev->get_frame_data(rs::stream::color_aligned_to_depth);
       cv::Mat color_aligned_image(color_aligned_intrin.height,color_aligned_intrin.width,CV_8UC3,color_aligned_raw, cv::Mat::AUTO_STEP);
       sensor_msgs::ImagePtr colorImage = cvImagetoMsg(color_aligned_image,sensor_msgs::image_encodings::RGB8,"camera_depth_optical_frame");
       color_reg_camera_info = color_reg_camera_info_man->getCameraInfo();
