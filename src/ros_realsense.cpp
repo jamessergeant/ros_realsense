@@ -119,24 +119,25 @@ int main(int argc, char * argv[]) try
     uint8_t * color_raw;
     const uint16_t *depth_raw;
 
+    cv::Mat color_reg_image(depth_intrin.height,depth_intrin.width,CV_8UC3);
+    PointCloud::Ptr cloud(new PointCloud);
+    cloud->points.resize(depth_intrin.width * depth_intrin.height);
+    cloud->header.frame_id = "world";
+    cloud->is_dense = false;
+    cloud->height = depth_intrin.height;
+    cloud->width = depth_intrin.width;
 
     // get color stream if pointcloud or color image subscribed to
-    if (points_pub.getNumSubscribers() > 0 || color_pub.getNumSubscribers() > 0) {
+    if (points_pub.getNumSubscribers() > 0 || color_pub.getNumSubscribers() > 0 || color_reg_pub.getNumSubscribers() > 0) {
       color_raw = (uint8_t *)dev->get_frame_data(rs::stream::color);
     }
 
-
     // only if the pointcloud is subscibed to
-    if (points_pub.getNumSubscribers() > 0)
+    if (points_pub.getNumSubscribers() > 0 || color_reg_pub.getNumSubscribers() > 0)
     {
-      depth_raw = (const uint16_t *)dev->get_frame_data(rs::stream::depth);
+        depth_raw = (const uint16_t *)dev->get_frame_data(rs::stream::depth);
+
       // instantiate pcl xyzrgb pointcloud
-      PointCloud::Ptr cloud(new PointCloud);
-      cloud->points.resize(depth_intrin.width * depth_intrin.height);
-      cloud->header.frame_id = "world";
-      cloud->is_dense = false;
-      cloud->height = depth_intrin.height;
-      cloud->width = depth_intrin.width;
 
       for (int dy=0; dy<depth_intrin.height; ++dy){
 
@@ -170,23 +171,32 @@ int main(int argc, char * argv[]) try
 
             //add point to cloud
             cloud->points[dy * depth_intrin.width + dx] = point;
-          }
+            color_reg_image.at<cv::Vec3b>(cv::Point(dx,dy)) = cv::Vec3b(point.getRGBVector3i()[0],point.getRGBVector3i()[1],point.getRGBVector3i()[2]);//cv::Vec3b(point.r, point.g, point.b);
+//            std::cout << "if" << std::endl;
+        } else {
+            color_reg_image.at<cv::Vec3b>(cv::Point(dx,dy)) = cv::Vec3b(0,0,0);
+//            std::cout << "else" << std::endl;
+        }
         }
       }
 
-      // test if cloud empty
-      if ((*cloud).points.size() != 0) {
+}
+      // only if the pointcloud is subscibed to
+    if (points_pub.getNumSubscribers() > 0)
+    {
+        // test if cloud empty
+        if ((*cloud).points.size() != 0) {
 
-        //convert pcl pointcloud to sensor_msgs pointcloud2, publish
-        pcl::PCLPointCloud2 pcl_xyz_pc2;
-        pcl::toPCLPointCloud2 (*cloud, pcl_xyz_pc2);
-        sensor_msgs::PointCloud2 realsense_xyz_cloud2;
-        pcl_conversions::moveFromPCL(pcl_xyz_pc2, realsense_xyz_cloud2);
-        realsense_xyz_cloud2.header.stamp = ros::Time::now();
-        realsense_xyz_cloud2.header.frame_id = "camera_depth_optical_frame";
-        points_pub.publish(realsense_xyz_cloud2);
+            //convert pcl pointcloud to sensor_msgs pointcloud2, publish
+            pcl::PCLPointCloud2 pcl_xyz_pc2;
+            pcl::toPCLPointCloud2 (*cloud, pcl_xyz_pc2);
+            sensor_msgs::PointCloud2 realsense_xyz_cloud2;
+            pcl_conversions::moveFromPCL(pcl_xyz_pc2, realsense_xyz_cloud2);
+            realsense_xyz_cloud2.header.stamp = ros::Time::now();
+            realsense_xyz_cloud2.header.frame_id = "camera_depth_optical_frame";
+            points_pub.publish(realsense_xyz_cloud2);
 
-      }
+        }
     }
 
     // only if the depth image topic is subscribed to
@@ -227,10 +237,39 @@ int main(int argc, char * argv[]) try
     // only if depth-aligned color image subscribed to
     if (color_reg_pub.getNumSubscribers() > 0)
     {
-      // obtain data, convert to cv image and publish
-      uint8_t* color_aligned_raw = (uint8_t *)dev->get_frame_data(rs::stream::color_aligned_to_depth);
-      cv::Mat color_aligned_image(color_aligned_intrin.height,color_aligned_intrin.width,CV_8UC3,color_aligned_raw, cv::Mat::AUTO_STEP);
-      sensor_msgs::ImagePtr colorImage = cvImagetoMsg(color_aligned_image,sensor_msgs::image_encodings::RGB8,"camera_depth_optical_frame");
+
+//        cv::Mat color_reg_image(depth_intrin.height,depth_intrin.width,CV_8UC3);
+
+//        for (int dy=0; dy<depth_intrin.height; ++dy){
+
+//          for (int dx=0; dx<depth_intrin.width; ++dx){
+
+//            //obtain the depth value and apply scale factor
+//            uint16_t depth_value = depth_raw[dy * depth_intrin.width + dx];
+//            float depth_in_meters = depth_value * scale;
+//            // Skip over pixels with a depth value of zero, which is used to indicate no data
+//            if(depth_value == 0) continue;
+
+//            // Map from pixel coordinates in the depth image to pixel coordinates in the color image
+//            rs::float2 depth_pixel = {(float)dx, (float)dy};
+//            rs::float3 depth_point = depth_intrin.deproject(depth_pixel, depth_in_meters);
+//            rs::float3 color_point cloud= depth_to_color.transform(depth_point);
+//            rs::float2 color_pixel = color_intrin.project(color_point);
+
+//            // Use the color from the nearest color pixel, ignore this point falls outside the color image
+//            const int cx = (int)std::round(color_pixel.x), cy = (int)std::round(color_pixel.y);
+//            if (!(cx < 0 || cy < 0 || cx >= color_intrin.width || cy >= color_intrin.height))
+//            {
+//                //obtain pointer to current colour pixel
+//                const uint8_t * color_ptr = color_raw + (cy * color_intrin.width + cx) * 3;
+//                color_reg_image.at<cv::Vec3b>(cv::Point(dy,dx)) = cv::Vec3b(*(color_ptr), *(color_ptr+1), *(color_ptr+2));
+//            } else {
+//                color_reg_image.at<cv::Vec3b>(cv::Point(dy,dx)) = cv::Vec3b(0,0,0);
+//            }
+//          }
+//        }
+      // publish depth registered colour image
+      sensor_msgs::ImagePtr colorImage = cvImagetoMsg(color_reg_image,sensor_msgs::image_encodings::RGB8,"camera_depth_optical_frame");
       color_reg_camera_info = color_reg_camera_info_man->getCameraInfo();
       color_reg_camera_info.header.frame_id ="camera_depth_optical_frame";
       color_reg_pub.publish(*colorImage,color_reg_camera_info,colorImage->header.stamp);
