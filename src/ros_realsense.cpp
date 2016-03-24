@@ -132,9 +132,11 @@ int main(int argc, char * argv[]) try
       depth_raw = (const uint16_t *)dev->get_frame_data(rs::stream::depth);
       // instantiate pcl xyzrgb pointcloud
       PointCloud::Ptr cloud(new PointCloud);
+      cloud->points.resize(depth_intrin.width * depth_intrin.height);
       cloud->header.frame_id = "world";
-      cloud->height = 1;
-      cloud->width = 1;
+      cloud->is_dense = false;
+      cloud->height = depth_intrin.height;
+      cloud->width = depth_intrin.width;
 
       for (int dy=0; dy<depth_intrin.height; ++dy){
 
@@ -167,7 +169,7 @@ int main(int argc, char * argv[]) try
             point.z = depth_point.z;
 
             //add point to cloud
-            cloud->push_back(point);
+            cloud->points[dy * depth_intrin.width + dx] = point;
           }
         }
       }
