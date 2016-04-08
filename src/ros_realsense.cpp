@@ -147,7 +147,10 @@ int main(int argc, char * argv[]) try
           uint16_t depth_value = depth_raw[dy * depth_intrin.width + dx];
           float depth_in_meters = depth_value * scale;
           // Skip over pixels with a depth value of zero, which is used to indicate no data
-          if(depth_value == 0) continue;
+          if(depth_value == 0) {
+              color_reg_image.at<cv::Vec3b>(cv::Point(dx,dy)) = cv::Vec3b(0,0,0);
+              continue;
+          }
 
           // Map from pixel coordinates in the depth image to pixel coordinates in the color image
           rs::float2 depth_pixel = {(float)dx, (float)dy};
