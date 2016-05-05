@@ -3,7 +3,7 @@
 
     <arg name="camera" default="camera" />
 
-    <node name="ros_realsense" pkg="ros_realsense" type="ros_realsense_node" output="screen">
+    <node name="ros_realsense" pkg="ros_realsense" type="ros_realsense_node" output="screen" respawn="true">
 
     </node>
 
