@@ -276,7 +276,7 @@ int main(int argc, char * argv[]) try
                 sensor_msgs::PointCloud2 realsense_xyz_cloud2;
                 pcl_conversions::moveFromPCL(pcl_xyz_pc2, realsense_xyz_cloud2);
                 realsense_xyz_cloud2.header.stamp = ros::Time::now();
-                realsense_xyz_cloud2.header.frame_id = "camera_depth_optical_frame";
+                realsense_xyz_cloud2.header.frame_id = "camera_rgb_optical_frame";
                 points_aligned_pub.publish(realsense_xyz_cloud2);
             }
         }
