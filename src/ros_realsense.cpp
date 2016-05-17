@@ -71,6 +71,7 @@ int main(int argc, char * argv[]) try
   dev->enable_stream(rs::stream::color, rs::preset::best_quality);
   dev->enable_stream(rs::stream::infrared, rs::preset::best_quality);
   dev->start();
+  apply_ivcam_preset(dev, 5);
 
   // initialise the node
   ros::init(argc, argv, "ros_realsense_node");
