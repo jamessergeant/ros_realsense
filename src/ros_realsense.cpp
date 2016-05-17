@@ -23,6 +23,7 @@ image_transport::CameraPublisher color_reg_depth_pub;
 image_transport::CameraPublisher depth_reg_color_pub;
 image_transport::CameraPublisher ir_pub;
 image_transport::CameraPublisher depth_pub;
+image_transport::CameraPublisher depth_aligned_pub;
 sensor_msgs::CameraInfo color_camera_info;
 sensor_msgs::CameraInfo depth_camera_info;
 sensor_msgs::CameraInfo ir_camera_info;
@@ -84,6 +85,7 @@ int main(int argc, char * argv[]) try
     color_reg_depth_pub = image_transport.advertiseCamera("/realsense/rgb_depth_aligned/image_raw", 1 );
     depth_reg_color_pub = image_transport.advertiseCamera("/realsense/depth_rgb_aligned/image_raw", 1 );
     depth_pub = image_transport.advertiseCamera("/realsense/depth/image_raw", 1 );
+    depth_aligned_pub = image_transport.advertiseCamera("/realsense/depth_aligned/image_raw", 1 );
     ir_pub = image_transport.advertiseCamera("/realsense/ir/image_raw", 1 );
     points_pub = n.advertise<sensor_msgs::PointCloud2>("/realsense/points", 1 );
     points_aligned_pub = n.advertise<sensor_msgs::PointCloud2>("/realsense/points_aligned", 1 );
@@ -303,6 +305,30 @@ int main(int argc, char * argv[]) try
             depth_camera_info = depth_camera_info_man->getCameraInfo();
             depth_camera_info.header.frame_id ="camera_depth_optical_frame";
             depth_pub.publish(*depthImage,depth_camera_info,depthImage->header.stamp);
+        }
+
+        // only if the depth image topic is subscribed to
+        if (depth_aligned_pub.getNumSubscribers() > 0)
+        {
+            uint16_t *depth_raw2 = (uint16_t *)dev->get_frame_data(rs::stream::depth_aligned_to_color);
+            // convert to cv image and publish
+            cv::Mat depth_image_raw(depth_intrin.height,depth_intrin.width,CV_16UC1,depth_raw2, cv::Mat::AUTO_STEP);
+
+            cv::Mat depth_image(depth_intrin.height,depth_intrin.width,CV_16UC1);
+
+            cv::Mat depth_image_scaled(depth_intrin.height,depth_intrin.width,CV_64FC1);
+
+            depth_image_raw.copyTo(depth_image);
+            depth_image_raw.convertTo(depth_image_scaled,CV_64FC1);
+
+            depth_image_scaled *= 1000.0f*scale;
+
+            depth_image_scaled.convertTo(depth_image,CV_16UC1);
+
+            sensor_msgs::ImagePtr depthImage = cvImagetoMsg(depth_image,sensor_msgs::image_encodings::MONO16,"camera_rgb_optical_frame");
+            depth_camera_info = depth_camera_info_man->getCameraInfo();
+            depth_camera_info.header.frame_id ="camera_rgb_optical_frame";
+            depth_aligned_pub.publish(*depthImage,depth_camera_info,depthImage->header.stamp);
         }
 
         // only if color image subscribed to
