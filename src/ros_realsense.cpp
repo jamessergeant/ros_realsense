@@ -12,6 +12,7 @@
 #include <sensor_msgs/PointCloud2.h>
 #include <sensor_msgs/CameraInfo.h>
 #include <camera_info_manager/camera_info_manager.h>
+#include <math.h>
 
 typedef pcl::PointXYZRGB PointT;
 typedef pcl::PointCloud<PointT> PointCloud;
@@ -161,6 +162,11 @@ int main(int argc, char * argv[]) try
                     //obtain the depth value and apply scale factor
                     uint16_t depth_value = depth_raw[dy * depth_intrin.width + dx];
                     float depth_in_meters = depth_value * scale;
+                    // depth_in_meters = 0.326335990598878*pow(depth_in_meters,3.0) +
+                    //                   0.228008715981488*pow(depth_in_meters,2.0) +
+                    //                   1.026086470601403*depth_in_meters -
+                    //                   0.004441013854035;
+
                     // Skip over pixels with a depth value of zero, which is used to indicate no data
                     if(depth_value == 0) {
                         color_reg_image.at<cv::Vec3b>(cv::Point(dx,dy)) = cv::Vec3b(0,0,0);
@@ -218,6 +224,10 @@ int main(int argc, char * argv[]) try
                     // Obtain the depth value and apply scale factor
                     uint16_t depth_value = depth_raw[dy * depth_intrin.width + dx];
                     float depth_in_meters = depth_value * scale;
+                    // depth_in_meters = 0.326335990598878*pow(depth_in_meters,3.0) +
+                    //                   0.228008715981488*pow(depth_in_meters,2.0) +
+                    //                   1.026086470601403*depth_in_meters -
+                    //                   0.004441013854035;
 
                     // Map from pixel coordinates in the depth image to pixel coordinates in the color image
                     rs::float2 depth_pixel = {(float)dx, (float)dy};

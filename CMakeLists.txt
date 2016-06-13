@@ -37,15 +37,15 @@ if (${PCL_CONFIGURED})
   link_directories(${PCL_LIBRARY_DIRS})
   add_definitions(${PCL_DEFINITIONS})
 
-  find_package(CUDA REQUIRED)
+#  find_package(CUDA REQUIRED)
 
-  if (CUDA_FOUND)
-      message(" * CUDA ${CUDA_VERSION} was found")
-      include_directories(${CUDA_INCLUDE_DIRS})
-  else(CUDA_FOUND)
-      message(" * CUDA is not found")
-      message(FATAL_ERROR "Not all CUDA libraries are found")
-  endif(CUDA_FOUND)
+ # if (CUDA_FOUND)
+  #    message(" * CUDA ${CUDA_VERSION} was found")
+   #   include_directories(${CUDA_INCLUDE_DIRS})
+ # else(CUDA_FOUND)
+  #    message(" * CUDA is not found")
+   #   message(FATAL_ERROR "Not all CUDA libraries are found")
+ # endif(CUDA_FOUND)
 endif()
 
 # OpenCV
