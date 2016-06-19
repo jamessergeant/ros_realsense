@@ -73,8 +73,17 @@ int main(int argc, char * argv[]) try
     // enable the various camera streams
     dev->enable_stream(rs::stream::depth, rs::preset::best_quality);
     dev->enable_stream(rs::stream::color, rs::preset::best_quality);
+    //dev->enable_stream(rs::stream::color, rs::preset::best_quality);
+    dev->enable_stream(rs::stream::color, 1920, 1080, rs::format::rgb8, 0);
     dev->enable_stream(rs::stream::infrared, rs::preset::best_quality);
     dev->start();
+
+if(dev->supports_option(rs::option::color_enable_auto_white_balance)){
+int value = 0;
+dev->set_option(rs::option::color_enable_auto_white_balance,value);
+
+ROS_INFO_STREAM("Colour exposure supported, current value:" << dev->get_option(rs::option::color_enable_auto_white_balance));
+}
 
     // initialise the node
     ros::init(argc, argv, "ros_realsense_node");
