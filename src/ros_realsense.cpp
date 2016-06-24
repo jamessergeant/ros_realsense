@@ -163,7 +163,7 @@ ROS_INFO_STREAM("Colour exposure supported, current value:" << dev->get_option(r
     color_reg_camera_info_man->setCameraInfo(color_reg_camera_info);
     ir_camera_info_man->setCameraInfo(ir_camera_info);
     depth_camera_info_man->setCameraInfo(depth_camera_info);
-
+    ros::Rate r(40);
     while(ros::ok())
     {
         // wait for frames from device
@@ -174,6 +174,7 @@ ROS_INFO_STREAM("Colour exposure supported, current value:" << dev->get_option(r
           // ROS_INFO_STREAM("Not streaming");
 
           ros::spinOnce();
+          r.sleep();
           continue;
         }
         uint8_t * color_raw;
@@ -437,6 +438,7 @@ ROS_INFO_STREAM("Colour exposure supported, current value:" << dev->get_option(r
         }
 
         ros::spinOnce();
+        r.sleep();
 
     }
 
