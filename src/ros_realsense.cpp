@@ -13,6 +13,8 @@
 #include <sensor_msgs/CameraInfo.h>
 #include <camera_info_manager/camera_info_manager.h>
 #include <math.h>
+#include <std_srvs/SetBool.h>
+#include <thread>
 
 typedef pcl::PointXYZRGB PointT;
 typedef pcl::PointCloud<PointT> PointCloud;
@@ -33,6 +35,7 @@ camera_info_manager::CameraInfoManager *color_camera_info_man;
 camera_info_manager::CameraInfoManager *color_reg_camera_info_man;
 camera_info_manager::CameraInfoManager *ir_camera_info_man;
 camera_info_manager::CameraInfoManager *depth_camera_info_man;
+rs::device * dev;
 
 // cv Mat to sensor_msgs::Image conversion
 sensor_msgs::ImagePtr cvImagetoMsg(cv::Mat &image,std::string encoding, std::string frame){
@@ -62,6 +65,36 @@ void intrinsToCameraInfo(rs::intrinsics &intrins, sensor_msgs::CameraInfo &cam_i
     cam_info.R = {1, 0, 0, 0, 1, 0, 0, 0, 1};
 }
 
+bool enable_disable_callback(std_srvs::SetBool::Request &req,
+                               std_srvs::SetBool::Response &res) {
+    ROS_INFO_STREAM("Enable /disable callback, device streaming?" << dev->is_streaming() << req.data);
+    if (req.data && !dev->is_streaming()){
+      ROS_INFO_STREAM("Enable callback");
+      dev->enable_stream(rs::stream::depth, rs::preset::best_quality);
+      dev->enable_stream(rs::stream::color, rs::preset::best_quality);
+      dev->enable_stream(rs::stream::color, rs::preset::best_quality);
+      dev->enable_stream(rs::stream::infrared, rs::preset::best_quality);
+      dev->start();
+      ROS_INFO_STREAM("Enable callback finished");
+    } else if (!req.data && dev->is_streaming()) {
+      ROS_INFO_STREAM("Disable callback");
+      dev->stop();
+      std::this_thread::sleep_for(std::chrono::milliseconds(100));
+      dev->disable_stream(rs::stream::depth);
+      dev->disable_stream(rs::stream::color);
+      dev->disable_stream(rs::stream::color);
+      dev->disable_stream(rs::stream::infrared);
+      ROS_INFO_STREAM("Disable callback finished");
+    } else {
+      res.success = true;
+      ROS_INFO_STREAM(res.success);
+      return true;
+    }
+    res.success = true;
+    ROS_INFO_STREAM(res.success);
+    return true;
+}
+
 int main(int argc, char * argv[]) try
 {
     rs::log_to_console(rs::log_severity::warn);
@@ -69,12 +102,12 @@ int main(int argc, char * argv[]) try
     // get the device
     rs::context ctx;
     if(ctx.get_device_count() == 0) throw std::runtime_error("No device detected. Is it plugged in?");
-    rs::device * dev = ctx.get_device(0);
+    dev = ctx.get_device(0);
     // enable the various camera streams
     dev->enable_stream(rs::stream::depth, rs::preset::best_quality);
     dev->enable_stream(rs::stream::color, rs::preset::best_quality);
-    //dev->enable_stream(rs::stream::color, rs::preset::best_quality);
-    dev->enable_stream(rs::stream::color, 1920, 1080, rs::format::rgb8, 0);
+    dev->enable_stream(rs::stream::color, rs::preset::best_quality);
+    // dev->enable_stream(rs::stream::color, 1920, 1080, rs::format::rgb8, 0);
     dev->enable_stream(rs::stream::infrared, rs::preset::best_quality);
     dev->start();
 
@@ -99,6 +132,8 @@ ROS_INFO_STREAM("Colour exposure supported, current value:" << dev->get_option(r
     ir_pub = image_transport.advertiseCamera("/realsense/ir/image_raw", 1 );
     points_pub = n.advertise<sensor_msgs::PointCloud2>("/realsense/points", 1 );
     points_aligned_pub = n.advertise<sensor_msgs::PointCloud2>("/realsense/points_aligned", 1 );
+
+    ros::ServiceServer service = n.advertiseService("/ros_realsense/enable_disable", enable_disable_callback);
 
     ros::NodeHandle rgb_handle("~/rgb/");
     ros::NodeHandle rgb_depth_handle("~/rgb_depth_aligned/");
@@ -132,7 +167,15 @@ ROS_INFO_STREAM("Colour exposure supported, current value:" << dev->get_option(r
     while(ros::ok())
     {
         // wait for frames from device
-        if(dev->is_streaming()) dev->wait_for_frames();
+        if(dev->is_streaming()) {
+          // ROS_INFO_STREAM("Streaming");
+          dev->wait_for_frames();
+        } else {
+          // ROS_INFO_STREAM("Not streaming");
+
+          ros::spinOnce();
+          continue;
+        }
         uint8_t * color_raw;
         const uint16_t *depth_raw;
 
@@ -392,6 +435,8 @@ ROS_INFO_STREAM("Colour exposure supported, current value:" << dev->get_option(r
             ir_camera_info.header.frame_id ="camera_depth_optical_frame";
             ir_pub.publish(*irImage,ir_camera_info,irImage->header.stamp);
         }
+
+        ros::spinOnce();
 
     }
 
